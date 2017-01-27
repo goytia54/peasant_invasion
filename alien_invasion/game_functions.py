@@ -74,7 +74,7 @@ def check_keyup_events(event, ship):
         ship.moving_down = False
 
 
-def check_events(ai_settings, screen, stats, play_button, ship, peasants, 
+def check_events(ai_settings, screen, stats, sb, play_button, ship, peasants, 
                 bullets):
     """checks for keyboard and mouse events"""
     for event in pygame.event.get():
@@ -86,12 +86,12 @@ def check_events(ai_settings, screen, stats, play_button, ship, peasants,
             check_keyup_events(event, ship)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = pygame.mouse.get_pos()
-            check_play_button(ai_settings, screen, stats, play_button, ship, 
+            check_play_button(ai_settings, screen, stats, sb, play_button, ship, 
                                 peasants, bullets, mouse_x, mouse_y)
 
 
-def check_play_button(ai_settings, screen, stats, play_button, ship, peasants,
-                        bullets, mouse_x, mouse_y):
+def check_play_button(ai_settings, screen, stats, sb, play_button, ship, 
+                        peasants, bullets, mouse_x, mouse_y):
     """Start a new game when the player clicks play."""
     button_clicked = play_button.rect.collidepoint(mouse_x, mouse_y)
     if button_clicked and not stats.game_active:
@@ -103,6 +103,12 @@ def check_play_button(ai_settings, screen, stats, play_button, ship, peasants,
         # reset the game statisitics
         stats.reset_stats()
         stats.game_active = True
+
+        #Reset the scoreboard images.
+        sb.prep_score()
+        sb.prep_high_score()
+        sb.prep_level()
+        sb.prep_ships()
 
         peasants.empty()
         bullets.empty()
@@ -154,7 +160,7 @@ def update_screen(ai_settings, screen, stats, sb, ship, peasant, bullets, play_b
     #Make the most recently drawn screen visible
     pygame.display.flip()
 
-def update_bullets(ai_settings, screen, ship, peasants, bullets):
+def update_bullets(ai_settings, screen, stats, sb, ship, peasants, bullets):
     """Update the position of bullets and get rid of old bullets"""
     #Update bullet positions.
     bullets.update()
@@ -163,23 +169,37 @@ def update_bullets(ai_settings, screen, ship, peasants, bullets):
         if bullet.rect.bottom <= 0:
             bullets.remove(bullet)
 
-    check_bullet_peasant_collision(ai_settings, screen, ship, peasants, bullets)
+    check_bullet_peasant_collision(ai_settings, screen, stats, sb, ship,
+                            peasants, bullets)
 
-def check_bullet_peasant_collision(ai_settings, screen, ship, peasants, bullets):
+def check_bullet_peasant_collision(ai_settings, screen, stats, sb, ship,
+                        peasants, bullets):
     """respond to bullet-peasant collisions."""
     #if so, get rid of the bullet and peasants
     collisions = pygame.sprite.groupcollide(bullets, peasants, True, True)
+    if collisions:
+        for peasants in collisions.values():
+            stats.score += ai_settings.peasant_points * len(peasants)
+            sb.prep_score()
+        check_high_score(stats, sb)
     if len(peasants) == 0:
         #Destroy existing  bullets, speed up game and create new fleet.
         bullets.empty()
         ai_settings.increase_speed()
+
+        #increase level.
+        stats.level += 1
+        sb.prep_level()
+
         create_fleet(ai_settings, screen, ship, peasants)
 
 
-def ship_hit(ai_settings, stats, screen, ship, peasants, bullets):
+def ship_hit(ai_settings, stats, screen, sb, ship, peasants, bullets):
     """Respond to ship being hit by peasant."""
     if stats.ships_left > 0:
         stats.ships_left -= 1
+        #update scoreboard
+        sb.prep_ships()
         #empty the list of peasants and bullets.
         peasants.empty()
         bullets.empty()
@@ -193,22 +213,30 @@ def ship_hit(ai_settings, stats, screen, ship, peasants, bullets):
         pygame.mouse.set_visible(True)
 
 
-def check_peasants_bottom(ai_settings, stats, screen, ship, peasants, bullets):
+def check_peasants_bottom(ai_settings, stats, screen, sb, ship, peasants, 
+                        bullets):
     """ check if any aliens have reached the bottom of the screen."""
     screen_rect = screen.get_rect()
     for peasant in peasants.sprites():
         if peasant.rect.bottom >= screen_rect.bottom:
             # Treat this the same as if the ship got hit.
-            ship_hit(ai_settings, stats, screen, ship, peasants, bullets)
+            ship_hit(ai_settings, stats, screen, sb, ship, peasants, bullets)
+            break
 
-
-def update_peasants(ai_settings, stats, screen, ship, peasants, bullets):
+def update_peasants(ai_settings, stats, screen, sb, ship, peasants, bullets):
     """update the positions of all peasants"""
     check_fleet_edges(ai_settings, peasants)
     peasants.update()
-    # look for peasants hitting the bottom of the screen.
-    check_peasants_bottom(ai_settings, stats, screen, ship, peasants, bullets)
-
     #Look for peasant-ship collisions
     if pygame.sprite.spritecollideany(ship, peasants):
-        ship_hit(ai_settings, stats, screen, ship, peasants, bullets)
+        ship_hit(ai_settings, stats, screen, sb, ship, peasants, bullets)
+
+    # look for peasants hitting the bottom of the screen.
+    check_peasants_bottom(ai_settings, stats, screen, sb, ship, peasants, bullets)
+
+
+def check_high_score(stats, sb):
+    """check to see if theres a new high score"""
+    if stats.score > stats.high_score:
+        stats.high_score = stats.score
+        sb.prep_high_score()

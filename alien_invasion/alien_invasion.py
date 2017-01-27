@@ -35,14 +35,16 @@ def run_game():
 
     #start the main loop for the game
     while True:
-        gf.check_events(ai_settings, screen, stats, play_button, ship, 
+        gf.check_events(ai_settings, screen, stats, sb, play_button, ship,
                         peasants, bullets)
         if stats.game_active:
             ship.update()
-            gf.update_bullets(ai_settings, screen, ship, peasants, bullets)
-            gf.update_peasants(ai_settings, stats, screen, ship, peasants, bullets)
+            gf.update_bullets(ai_settings, screen, stats, sb, ship, peasants,
+                                bullets)
+            gf.update_peasants(ai_settings, stats, screen, sb, ship, peasants,
+                                bullets)
 
-        gf.update_screen(ai_settings, screen, stats, sb, ship, peasants, 
+        gf.update_screen(ai_settings, screen, stats, sb, ship, peasants,
                         bullets, play_button)
 
 run_game()
